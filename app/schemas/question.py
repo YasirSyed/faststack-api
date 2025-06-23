@@ -1,6 +1,8 @@
 from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel
+from app.schemas.answer import Answer
+from app.schemas.comment import Comment
 
 class QuestionBase(BaseModel):
     title: str
@@ -31,5 +33,5 @@ class Question(QuestionInDBBase):
     vote_count: Optional[int] = 0
 
 class QuestionDetail(Question):
-    answers: Optional[List["Answer"]] = []
-    comments: Optional[List["Comment"]] = [] 
+    answers: Optional[List[Answer]] = []
+    comments: Optional[List[Comment]] = [] 
