@@ -11,6 +11,8 @@ from app.models.tag import Tag
 from sqlalchemy import text
 from app.core.security import get_password_hash
 import numpy as np
+import subprocess
+import sys
 
 # Suppress bcrypt warning
 warnings.filterwarnings("ignore", message=".*bcrypt.*")
@@ -27,8 +29,16 @@ def clear_database(db: Session):
     db.query(User).delete()
     db.commit()
 
+def safe_parse_datetime(val):
+    if val is not None and not pd.isna(val) and str(val).strip() != '':
+        return pd.to_datetime(val)
+    return None
+
 # Run the script with python3 -m scriptsimport_stackoverflow_sample
 def main():
+    # Disable timestamp autopopulation
+    subprocess.run([sys.executable, os.path.join('scripts', 'toggle_timestamp_autopop.py'), 'off'])
+
     db: Session = SessionLocal()
     clear_database(db)
     print("\nDatabase cleared successfully!\n")
@@ -82,7 +92,12 @@ def main():
 
     # Insert questions
     user_id_map = {user.id: user.id for user in db.query(User).all()}
+    accepted_answer_map = {}
     for _, row in questions_df.iterrows():
+        qid = int(row['Id'])
+        accepted_id = row.get('AcceptedAnswerId')
+        if accepted_id is not None and not pd.isna(accepted_id):
+            accepted_answer_map[qid] = int(accepted_id)
         owner_user_id = row['OwnerUserId']
         author_id = None
         if not isinstance(owner_user_id, (pd.Series, np.ndarray)):
@@ -102,7 +117,8 @@ def main():
             content=row['Body'],
             author_id=author_id,
             view_count=view_count_value,
-            updated_at=None  # or parse if you have the date
+            created_at=safe_parse_datetime(row.get('CreationDate')),
+            updated_at=safe_parse_datetime(row.get('LastEditDate')) or safe_parse_datetime(row.get('LastActivityDate'))
         )
         db.merge(question)
     db.commit()
@@ -134,12 +150,17 @@ def main():
         if parent_id not in inserted_question_ids:
             print(f"Skipping answer {row['Id']} because question {parent_id} not found in imported questions.")
             continue
+        is_accepted = False
+        if parent_id in accepted_answer_map and int(row['Id']) == accepted_answer_map[parent_id]:
+            is_accepted = True
         answer = Answer(
             id=int(row['Id']),
             content=row['Body'],
             question_id=parent_id,
             author_id=author_id,
-            is_accepted=(row['Id'] == row.get('AcceptedAnswerId', False))
+            is_accepted=is_accepted,
+            created_at=safe_parse_datetime(row.get('CreationDate')),
+            updated_at=safe_parse_datetime(row.get('LastEditDate')) or safe_parse_datetime(row.get('LastActivityDate'))
         )
         db.merge(answer)
     db.commit()
@@ -176,6 +197,8 @@ def main():
             author_id=author_id if author_id else None,
             question_id=question_id,
             answer_id=answer_id,
+            created_at=safe_parse_datetime(row.get('CreationDate')),
+            updated_at=None  # Comments CSV may not have updated_at
         )
         db.merge(comment)
     db.commit()
@@ -210,6 +233,9 @@ def main():
 
     db.close()
     print("\nSample Stack Overflow data imported successfully!\n")
+
+    # Restore timestamp autopopulation
+    subprocess.run([sys.executable, os.path.join('scripts', 'toggle_timestamp_autopop.py'), 'on'])
 
 if __name__ == "__main__":
     main() 
