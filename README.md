@@ -188,4 +188,24 @@ pytest --cov=app
 
 ## License
 
-This project is licensed under the MIT License. 
+This project is licensed under the MIT License.
+
+# Data Files
+
+The `data/` folder contains sample Stack Overflow data in CSV format, including:
+
+- `Answers.csv`
+- `Comments.csv`
+- `PostTags.csv`
+- `PostTypes.csv`
+- `Questions.csv`
+- `TagDetails.csv`
+- `Tags.csv`
+- `Users.csv`
+
+These files are included for development and testing purposes. They allow you to populate the database with realistic sample data using the `scripts/import_stackoverflow_sample.py` script.
+
+**Note:**
+- These files are not intended for production use.
+- Do not include sensitive or private data in this folder.
+- If you need to regenerate or update the sample data, ensure all contributors are aware of the changes. 
